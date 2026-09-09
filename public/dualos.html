@@ -505,6 +505,13 @@ const nameOf = who => who==='her' ? (S().her.name||'Her') : who==='me' ? (S().me
 const initialOf = who => (nameOf(who)[0]||'?').toUpperCase();
 function todayStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
 function todayAbbr(){ return WEEKDAYS[(new Date().getDay()+6)%7]; }
+function timeGreeting(){
+  const h=new Date().getHours();
+  if(h<5) return 'Night Owl';
+  if(h<12) return 'Good Morning';
+  if(h<18) return 'Good Afternoon';
+  return 'Good Evening';
+}
 function weekdayOf(dateStr){ if(!dateStr) return null; const d=new Date(dateStr+'T00:00'); return WEEKDAYS[(d.getDay()+6)%7]; }
 function fmtDate(dateStr){
   if(!dateStr) return '';
@@ -641,6 +648,7 @@ function renderPage(){
 /* ---------- Dashboard ---------- */
 function renderDashboard(){
   return `
+    <div style="font-size:22px;font-weight:600;letter-spacing:-0.011em;margin-bottom:14px">${timeGreeting()}</div>
     ${renderPeople()}
     <div class="section-label" style="margin-top:28px">
       <span>Today's priorities</span>
