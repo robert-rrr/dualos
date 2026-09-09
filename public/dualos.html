@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<meta name="theme-color" content="#2563EB" />
+<meta name="theme-color" content="#7C9473" />
 <title>DualOS</title>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.5/firebase-app-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.5/firebase-database-compat.js"></script>
@@ -11,27 +11,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap');
 
 :root{
-  --bg:#F8FAFC;
+  --bg:#F7F5F0;
   --surface:#FFFFFF;
-  --surface-2:#F1F5F9;
-  --border:#E5E7EB;
-  --border-strong:#D1D5DB;
-  --primary:#2563EB;
-  --primary-soft:#EFF4FF;
-  --text:#111827;
-  --muted:#6B7280;
-  --muted-2:#9CA3AF;
-  --success:#16A34A;
-  --success-soft:#ECFDF3;
-  --warning:#D97706;
-  --warning-soft:#FEF6E7;
-  --critical:#DC2626;
-  --critical-soft:#FEECEC;
-  --her:#2563EB;
-  --me:#0F766E;
+  --surface-2:#F0ECE3;
+  --border:#E4DDD0;
+  --border-strong:#D2C8B4;
+  --primary:#7C9473;
+  --primary-soft:#E9EFE4;
+  --text:#2E2A23;
+  --muted:#83795F;
+  --muted-2:#A99F87;
+  --success:#6B9464;
+  --success-soft:#EBF2E7;
+  --warning:#B98A4E;
+  --warning-soft:#F6EDDD;
+  --critical:#B5584B;
+  --critical-soft:#F5E6E1;
+  --her:#8FA888;
+  --me:#9C7A5B;
   --radius:12px;
   --radius-sm:8px;
-  --shadow:0 1px 2px rgba(16,24,40,.04);
+  --shadow:0 1px 2px rgba(46,38,26,.05);
   --rail:236px;
 }
 
@@ -329,7 +329,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   .fab{
     display:flex;position:fixed;right:18px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:55;
     width:54px;height:54px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;
-    align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(37,99,235,.4);
+    align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(124,148,115,.4);
   }
   .fab svg{width:24px;height:24px;stroke:#fff;}
   .modal{margin:auto auto 0;border-bottom-left-radius:0;border-bottom-right-radius:0;width:100vw;max-height:92vh;}
@@ -401,6 +401,12 @@ const DEFAULT_SETTINGS = {
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
+const DEFAULT_REWARDS = [
+  {id:uid(), title:'Movie night', criteria:'Both finish weekly critical (P1) tasks', tier:'Weekly', goalId:null, unlocked:false, created:Date.now()},
+  {id:uid(), title:'Coffee together', criteria:'Either of you submits an assignment', tier:'Daily', goalId:null, unlocked:false, created:Date.now()},
+  {id:uid(), title:'Dinner outside', criteria:'Publish the Behance project', tier:'Milestone', goalId:null, unlocked:false, created:Date.now()},
+];
+
 const DEFAULT_TASKS = [
   {id:uid(), title:'Finish Content Design assignment draft', description:'', links:[], owner:'her', priority:'P1', status:'progress', project:'Coursework', deadline:'', start:'', end:'', duration:'', notes:'', created:Date.now(), order:0},
   {id:uid(), title:'Select 3 projects for Behance', description:'', links:[], owner:'shared', priority:'P2', status:'todo', project:'Portfolio', deadline:'', start:'', end:'', duration:'', notes:'', created:Date.now(), order:1},
@@ -408,8 +414,8 @@ const DEFAULT_TASKS = [
 ];
 
 /* ---------- State ---------- */
-let state = {settings:null, tasks:null, notes:null, timetable:null, goals:null, bucket:null, signals:null};
-let ready = {settings:false, tasks:false, notes:false, timetable:false, goals:false, bucket:false, signals:false};
+let state = {settings:null, tasks:null, notes:null, timetable:null, goals:null, bucket:null, signals:null, rewards:null};
+let ready = {settings:false, tasks:false, notes:false, timetable:false, goals:false, bucket:false, signals:false, rewards:false};
 let page = 'dashboard';
 let ui = {
   dashTab:'her',           // her | me | combined
@@ -475,6 +481,7 @@ async function boot(){
     fbInit('dualos/goals', []),
     fbInit('dualos/bucket', []),
     fbInit('dualos/signals', {status:{her:'available', me:'available'}, messages:[]}),
+    fbInit('dualos/rewards', DEFAULT_REWARDS),
   ]);
   listen('dualos/settings','settings');
   listen('dualos/tasks','tasks');
@@ -483,6 +490,7 @@ async function boot(){
   listen('dualos/goals','goals');
   listen('dualos/bucket','bucket');
   listen('dualos/signals','signals');
+  listen('dualos/rewards','rewards');
 }
 boot().catch(e=>{
   document.getElementById('root').className='';
@@ -497,6 +505,13 @@ const nameOf = who => who==='her' ? (S().her.name||'Her') : who==='me' ? (S().me
 const initialOf = who => (nameOf(who)[0]||'?').toUpperCase();
 function todayStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
 function todayAbbr(){ return WEEKDAYS[(new Date().getDay()+6)%7]; }
+function timeGreeting(){
+  const h=new Date().getHours();
+  if(h<5) return 'Night Owl';
+  if(h<12) return 'Good Morning';
+  if(h<18) return 'Good Afternoon';
+  return 'Good Evening';
+}
 function weekdayOf(dateStr){ if(!dateStr) return null; const d=new Date(dateStr+'T00:00'); return WEEKDAYS[(d.getDay()+6)%7]; }
 function fmtDate(dateStr){
   if(!dateStr) return '';
@@ -632,37 +647,53 @@ function renderPage(){
 
 /* ---------- Dashboard ---------- */
 function renderDashboard(){
-  const critical = (state.tasks||[]).filter(t=>t.status!=='done'&&t.priority==='P1').slice(0,3);
-  let taskSet;
-  if(ui.dashTab==='her') taskSet = tasksOf('her').filter(t=>t.status!=='done');
-  else if(ui.dashTab==='me') taskSet = tasksOf('me').filter(t=>t.status!=='done');
-  else taskSet = (state.tasks||[]).filter(t=>t.status!=='done');
-
   return `
+    <div style="font-size:22px;font-weight:600;letter-spacing:-0.011em;margin-bottom:14px">${timeGreeting()}</div>
     ${renderPeople()}
-    ${critical.length?`
-      <div class="section-label">Critical today</div>
-      <div class="tasklist">${critical.map(t=>taskRow(t,{critical:true})).join('')}</div>
-    `:''}
     <div class="section-label" style="margin-top:28px">
-      <span>Tasks</span>
+      <span>Today's priorities</span>
       <div class="segmented">
         <button class="${ui.dashTab==='her'?'active':''}" data-dash-tab="her">${esc(nameOf('her'))}</button>
         <button class="${ui.dashTab==='me'?'active':''}" data-dash-tab="me">${esc(nameOf('me'))}</button>
-        <button class="${ui.dashTab==='combined'?'active':''}" data-dash-tab="combined">Combined</button>
+        <button class="${ui.dashTab==='combined'?'active':''}" data-dash-tab="combined">Both</button>
       </div>
     </div>
-    ${ui.dashTab==='combined' ? renderCombined() : taskListBlock(taskSet, ui.dashTab)}
+    ${ui.dashTab==='combined' ? renderCombined() : renderDashPersonTab(ui.dashTab)}
+    ${rewardsHint()}
+  `;
+}
+// Critical (P1) and the rest, scoped to ONE person — never mixed together unlabeled.
+function renderDashPersonTab(who){
+  const critical = tasksOf(who).filter(t=>t.status!=='done'&&t.priority==='P1');
+  const rest = tasksOf(who).filter(t=>t.status!=='done'&&t.priority!=='P1');
+  return `
+    ${critical.length?`
+      <div style="margin-bottom:20px">
+        <div style="font-size:12px;font-weight:600;color:var(--critical);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Critical today</div>
+        <div class="tasklist">${critical.map(t=>taskRow(t,{critical:true})).join('')}</div>
+      </div>
+    `:''}
+    ${taskListBlock(rest, who)}
   `;
 }
 function renderCombined(){
   const groups = [['her',tasksOf('her').filter(t=>t.status!=='done')],['me',tasksOf('me').filter(t=>t.status!=='done')],['shared',(state.tasks||[]).filter(t=>t.owner==='shared'&&t.status!=='done')]];
-  return groups.map(([who,list])=>`
+  return groups.map(([who,list])=>{
+    const critical = list.filter(t=>t.priority==='P1');
+    const rest = list.filter(t=>t.priority!=='P1');
+    return `
     <div style="margin-bottom:20px">
       <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">${esc(nameOf(who))}</div>
-      ${list.length?`<div class="tasklist" data-drop="${who}">${list.map(t=>taskRow(t)).join('')}</div>`:emptyMini('Nothing here')}
+      ${critical.length?`<div class="tasklist" style="margin-bottom:8px">${critical.map(t=>taskRow(t,{critical:true})).join('')}</div>`:''}
+      ${rest.length?`<div class="tasklist" data-drop="${who}">${rest.map(t=>taskRow(t)).join('')}</div>`:(critical.length?'':emptyMini('Nothing here'))}
     </div>
-  `).join('');
+  `;}).join('');
+}
+function rewardsHint(){
+  const list = state.rewards||[];
+  if(!list.length) return '';
+  const unlocked = list.filter(r=>r.unlocked).length;
+  return `<div style="margin-top:24px;font-size:13px;color:var(--muted)">🎁 <button class="iconbtn" type="button" data-goto="our" style="padding:0;background:none;border:0;color:inherit;text-decoration:underline;font:inherit;cursor:pointer">${unlocked}/${list.length} rewards unlocked — see Our Space</button></div>`;
 }
 function taskListBlock(list, dropOwner){
   if(!list.length) return emptyState('inbox','No open tasks','Add one to get started.');
@@ -869,12 +900,60 @@ function renderOur(){
       <button class="${tab==='notes'?'active':''}" data-our-tab="notes">Shared notes</button>
       <button class="${tab==='schedule'?'active':''}" data-our-tab="schedule">Shared schedule</button>
       <button class="${tab==='bucket'?'active':''}" data-our-tab="bucket">Shared bucket</button>
+      <button class="${tab==='rewards'?'active':''}" data-our-tab="rewards">Rewards</button>
     </div>
     ${tab==='tasks'?ourTasks():''}
     ${tab==='notes'?ourNotes():''}
     ${tab==='schedule'?ourSchedule():''}
     ${tab==='bucket'?ourBucket():''}
+    ${tab==='rewards'?ourRewards():''}
   `;
+}
+function ourRewards(){
+  const list = (state.rewards||[]).slice().sort((a,b)=>(a.created||0)-(b.created||0));
+  return `<div class="section-label"><span>Rewards</span><button class="btn sm" data-new-reward>${icon('plus')}Add reward</button></div>
+    <p style="font-size:13px;color:var(--muted);margin:-6px 0 16px">Optionally link a reward to a goal — its progress bar fills as that goal fills. You still choose when to mark it claimed.</p>
+    ${list.length?`<div class="grid grid-2">${list.map(rewardCard).join('')}</div>`:emptyState('flag','No rewards yet','Add one and, if you like, link it to a goal.')}`;
+}
+function rewardCard(r){
+  const goal = r.goalId ? (state.goals||[]).find(g=>g.id===r.goalId) : null;
+  let pct = null;
+  if(goal){ const ms=goal.milestones||[]; pct = ms.length?Math.round((ms.filter(m=>m.done).length/ms.length)*100):(goal.progress||0); }
+  return `<div class="card goal ${r.unlocked?'claimed':''}">
+    <div class="goal-top">
+      <div style="flex:1">
+        <div class="goal-title">${esc(r.title)} <span class="chip" style="margin-left:4px">${esc(r.tier)}</span></div>
+        ${r.criteria?`<div class="goal-desc">${esc(r.criteria)}</div>`:''}
+      </div>
+      <div style="display:flex;gap:2px">
+        <button class="iconbtn" data-edit-reward="${r.id}" title="Edit reward" aria-label="Edit reward">${icon('edit')}</button>
+        <button class="iconbtn danger" data-del-reward="${r.id}" title="Delete reward" aria-label="Delete reward">${icon('trash')}</button>
+      </div>
+    </div>
+    ${pct!==null?`<div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-meta"><span>${pct}% toward ${esc(goal.title)}</span></div></div>`:''}
+    <button class="btn ${r.unlocked?'':'primary'} block" style="margin-top:${pct!==null?'4px':'12px'}" data-claim-reward="${r.id}">${r.unlocked?'✓ Claimed — tap to reset':'Mark claimed'}</button>
+  </div>`;
+}
+function rewardModal(){
+  const d = modal.data;
+  const goals = state.goals||[];
+  return `
+    <div class="modal-head"><h3>${d.__new?'New reward':'Edit reward'}</h3><button class="iconbtn" data-overlay>${icon('x')}</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Reward</label><input type="text" id="rw-title" value="${esc(d.title)}" placeholder="e.g. Movie night" autofocus></div>
+      <div class="field"><label>Unlocks when… <span class="hint">just a reminder, not enforced</span></label><input type="text" id="rw-criteria" value="${esc(d.criteria)}" placeholder="e.g. Both finish weekly critical tasks"></div>
+      <div class="row">
+        <div class="field"><label>Tier</label><select id="rw-tier">
+          ${['Daily','Weekly','Milestone','Custom'].map(t=>`<option value="${t}" ${d.tier===t?'selected':''}>${t}</option>`).join('')}
+        </select></div>
+        <div class="field"><label>Link to goal <span class="hint">optional</span></label><select id="rw-goal">
+          <option value="">None</option>
+          ${goals.map(g=>`<option value="${g.id}" ${d.goalId===g.id?'selected':''}>${esc(g.title)}</option>`).join('')}
+        </select></div>
+      </div>
+    </div>
+    <div class="modal-foot"><div>${!d.__new?`<button class="btn danger" data-modal-delete>${icon('trash')}Delete</button>`:''}</div>
+      <div style="display:flex;gap:10px"><button class="btn" data-overlay>Cancel</button><button class="btn primary" data-save-reward>Save</button></div></div>`;
 }
 function ourTasks(){
   const list = (state.tasks||[]).filter(t=>t.owner==='shared').sort((a,b)=>(a.order??0)-(b.order??0));
@@ -1040,6 +1119,12 @@ function renderSettings(){
       <div class="field" style="margin-bottom:0"><label>Default focus duration <span class="hint">(minutes)</span></label><input type="number" data-set="focusDuration" value="${esc(s.focusDuration)}" style="max-width:160px"></div>
     </div>
     <p style="font-size:13px;color:var(--muted);margin-top:16px">Names update everywhere in the app instantly. ${esc(nameOf('her'))} always appears first.</p>
+
+    <div class="section-label" style="margin-top:28px">Data</div>
+    <div class="card card-pad">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Everything is synced live to Firebase, so nothing here is required for safety — but it's a good habit to keep an occasional local copy.</p>
+      <button class="btn" data-export-data>${icon('inbox')}Export backup (JSON)</button>
+    </div>
   `;
 }
 function settingsPerson(who, p){
@@ -1065,15 +1150,48 @@ function emptyMini(text){ return `<div class="empty" style="padding:22px"><p sty
    ========================================================= */
 function renderModal(){
   let inner='';
-  if(modal.type==='task') inner=taskModal();
+  if(modal.type==='view') inner=taskViewModal();
+  else if(modal.type==='task') inner=taskModal();
   else if(modal.type==='block') inner=blockModal();
   else if(modal.type==='note') inner=noteModal();
   else if(modal.type==='bucket') inner=bucketModal();
   else if(modal.type==='goal') inner=goalModal();
+  else if(modal.type==='reward') inner=rewardModal();
   const drawer = modal.type==='block';
   return `<div class="overlay open" data-overlay>
     <div class="${drawer?'drawer':'modal'}">${inner}</div>
   </div>`;
+}
+function taskViewModal(){
+  const t = modal.data;
+  const over = isOverdue(t);
+  const links = (t.links||[]).filter(Boolean);
+  return `
+    <div class="modal-head"><h3>Task</h3><button class="iconbtn" data-overlay>${icon('x')}</button></div>
+    <div class="modal-body">
+      <div class="view-title">${esc(t.title)}</div>
+      <div class="view-chips">
+        <span class="chip owner-${t.owner==='shared'?'her':t.owner}">${esc(nameOf(t.owner))}</span>
+        <span class="chip ${t.priority.toLowerCase()}">${t.priority}</span>
+        <span class="chip st-${t.status}"><span class="sdot"></span>${statusMeta(t.status).label}</span>
+        ${t.project?`<span class="chip">${esc(t.project)}</span>`:''}
+      </div>
+      <div class="view-grid">
+        <div class="view-cell"><div class="view-k">Deadline</div><div class="view-v ${over?'over':''}">${t.deadline?fmtDate(t.deadline):'—'}${over?' · Overdue':''}</div></div>
+        <div class="view-cell"><div class="view-k">Scheduled</div><div class="view-v">${t.start?fmtTime(t.start)+(t.end?'–'+fmtTime(t.end):''):'—'}</div></div>
+        <div class="view-cell"><div class="view-k">Est. duration</div><div class="view-v">${t.duration?t.duration+' min':'—'}</div></div>
+      </div>
+      ${t.description?`<div class="view-sec"><div class="view-k" style="margin-bottom:6px">Description</div><div class="view-text">${esc(t.description)}</div></div>`:''}
+      ${links.length?`<div class="view-sec"><div class="view-k" style="margin-bottom:6px">Links</div><div class="view-links">${links.map(l=>`<a href="${esc(l)}" target="_blank" rel="noopener">${icon('link')}${esc(linkLabel(l))}</a>`).join('')}</div></div>`:''}
+      ${t.notes?`<div class="view-sec"><div class="view-k" style="margin-bottom:6px">Notes</div><div class="view-text">${esc(t.notes)}</div></div>`:''}
+    </div>
+    <div class="modal-foot">
+      <div><button class="btn danger" data-modal-delete>${icon('trash')}Delete</button></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn" data-toggle-from-view="${t.id}">${t.status==='done'?'Mark not done':'Mark done'}</button>
+        <button class="btn primary" data-edit-from-view="${t.id}">${icon('edit')}Edit</button>
+      </div>
+    </div>`;
 }
 function taskModal(){
   const d = modal.data;
@@ -1231,8 +1349,17 @@ function attach(){
 
   // Task interactions
   bindAll('[data-toggle]', el=>toggleTask(el.dataset.toggle));
+  bindAll('[data-view-task]', el=>viewTask(el.dataset.viewTask));
   bindAll('[data-edit-task]', el=>editTask(el.dataset.editTask), true);
   bindAll('[data-del-task]', el=>{ if(confirm('Delete this task?')) deleteTask(el.dataset.delTask); }, true);
+  bindAll('[data-edit-from-view]', el=>editTask(el.dataset.editFromView));
+  bindAll('[data-toggle-from-view]', el=>{ toggleTask(el.dataset.toggleFromView); closeModal(); });
+
+  // Rewards
+  bindAll('[data-new-reward]', ()=>openModal('reward',{__new:true,id:uid(),title:'',criteria:'',tier:'Weekly',goalId:null,unlocked:false,created:Date.now()}));
+  bindAll('[data-edit-reward]', el=>{ const r=(state.rewards||[]).find(x=>x.id===el.dataset.editReward); if(r) openModal('reward',{...r}); });
+  bindAll('[data-del-reward]', el=>{ if(confirm('Delete this reward?')) deleteItem('rewards','dualos/rewards',el.dataset.delReward); });
+  bindAll('[data-claim-reward]', el=>claimReward(el.dataset.claimReward));
 
   // Blocks
   bindAll('[data-edit-block]', el=>editBlock(el.dataset.editBlock));
@@ -1262,6 +1389,7 @@ function attach(){
 
   // Settings (save on change)
   root.querySelectorAll('[data-set]').forEach(el=>el.onchange=()=>saveSetting(el.dataset.set, el.type==='number'?+el.value:el.value));
+  bindAll('[data-export-data]', exportData);
 
   // Drag & drop
   attachDnd(root);
@@ -1309,6 +1437,7 @@ function attachModal(root){
   bind('[data-save-note]', saveNoteModal);
   bind('[data-save-bucket]', saveBucketModal);
   bind('[data-save-goal]', saveGoalModal);
+  bind('[data-save-reward]', saveRewardModal);
   bind('[data-modal-delete]', modalDelete);
   bind('[data-modal-dup]', ()=>{ duplicateBlock(modal.data.id); });
   bind('[data-add-link]', ()=>{ const c=document.querySelector('#f-links'); c.insertAdjacentHTML('beforeend', linkRowHtml('')); rebindModalMini(); });
@@ -1331,6 +1460,7 @@ function newTask(){
   openModal('task',{__new:true,id:uid(),title:'',description:'',links:[],owner,priority:'P2',status:'todo',project:'',deadline:'',start:'',end:'',duration:'',notes:'',created:Date.now(),order:maxOrder+1});
 }
 function editTask(id){ const t=(state.tasks||[]).find(x=>x.id===id); if(t) openModal('task',{...t}); }
+function viewTask(id){ const t=(state.tasks||[]).find(x=>x.id===id); if(t) openModal('view',{...t}); }
 function saveTaskModal(){
   const d = modal.data;
   const links = Array.from(document.querySelectorAll('.f-link')).map(i=>i.value.trim()).filter(Boolean);
@@ -1421,6 +1551,18 @@ function toggleMilestone(key){
   save('dualos/goals',list);
 }
 
+// Rewards
+function saveRewardModal(){
+  const d = modal.data;
+  const r = {id:d.id, title:val('#rw-title')||'Untitled', criteria:val('#rw-criteria'), tier:val('#rw-tier'), goalId:val('#rw-goal')||null, unlocked:d.unlocked||false, claimedAt:d.claimedAt??null, created:d.created||Date.now()};
+  const list=(state.rewards||[]).slice(); const i=list.findIndex(x=>x.id===r.id);
+  if(i>=0) list[i]=r; else list.push(r);
+  save('dualos/rewards',list); closeModal();
+}
+function claimReward(id){
+  save('dualos/rewards',(state.rewards||[]).map(r=>r.id===id?{...r,unlocked:!r.unlocked,claimedAt:!r.unlocked?Date.now():null}:r));
+}
+
 // Signals
 function setStatus(key){ const [who,st]=key.split(':'); const sig=state.signals||{status:{},messages:[]}; save('dualos/signals/status/'+who, st); }
 function sendSignal(){
@@ -1443,14 +1585,23 @@ function deleteItem(key,path,id){ save(path,(state[key]||[]).filter(x=>x.id!==id
 function modalDelete(){
   const {type,data}=modal;
   if(!confirm('Delete this?')) return;
-  if(type==='task') deleteTask(data.id);
+  if(type==='task'||type==='view') deleteTask(data.id);
   else if(type==='block') deleteBlock(data.id);
   else if(type==='note') deleteItem('notes','dualos/notes',data.id);
   else if(type==='bucket') deleteItem('bucket','dualos/bucket',data.id);
   else if(type==='goal') deleteItem('goals','dualos/goals',data.id);
+  else if(type==='reward') deleteItem('rewards','dualos/rewards',data.id);
   closeModal();
 }
 function val(sel){ const el=document.querySelector(sel); return el?el.value.trim():''; }
+function exportData(){
+  const data = {settings:state.settings, tasks:state.tasks, notes:state.notes, timetable:state.timetable, goals:state.goals, bucket:state.bucket, signals:state.signals, rewards:state.rewards};
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='dualos-backup-'+todayStr()+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+}
 
 /* Keyboard: Esc closes modal */
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && modal) closeModal(); });
