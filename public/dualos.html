@@ -685,7 +685,7 @@ function rewardsHint(){
   const list = state.rewards||[];
   if(!list.length) return '';
   const unlocked = list.filter(r=>r.unlocked).length;
-  return `<div style="margin-top:24px;font-size:13px;color:var(--muted)">🎁 <span data-goto="our" style="cursor:pointer;text-decoration:underline">${unlocked}/${list.length} rewards unlocked — see Our Space</span></div>`;
+  return `<div style="margin-top:24px;font-size:13px;color:var(--muted)">🎁 <button class="iconbtn" type="button" data-goto="our" style="padding:0;background:none;border:0;color:inherit;text-decoration:underline;font:inherit;cursor:pointer">${unlocked}/${list.length} rewards unlocked — see Our Space</button></div>`;
 }
 function taskListBlock(list, dropOwner){
   if(!list.length) return emptyState('inbox','No open tasks','Add one to get started.');
@@ -911,15 +911,15 @@ function rewardCard(r){
   const goal = r.goalId ? (state.goals||[]).find(g=>g.id===r.goalId) : null;
   let pct = null;
   if(goal){ const ms=goal.milestones||[]; pct = ms.length?Math.round((ms.filter(m=>m.done).length/ms.length)*100):(goal.progress||0); }
-  return `<div class="card goal ${r.unlocked?'':''}">
+  return `<div class="card goal ${r.unlocked?'claimed':''}">
     <div class="goal-top">
       <div style="flex:1">
         <div class="goal-title">${esc(r.title)} <span class="chip" style="margin-left:4px">${esc(r.tier)}</span></div>
         ${r.criteria?`<div class="goal-desc">${esc(r.criteria)}</div>`:''}
       </div>
       <div style="display:flex;gap:2px">
-        <button class="iconbtn" data-edit-reward="${r.id}">${icon('edit')}</button>
-        <button class="iconbtn danger" data-del-reward="${r.id}">${icon('trash')}</button>
+        <button class="iconbtn" data-edit-reward="${r.id}" title="Edit reward" aria-label="Edit reward">${icon('edit')}</button>
+        <button class="iconbtn danger" data-del-reward="${r.id}" title="Delete reward" aria-label="Delete reward">${icon('trash')}</button>
       </div>
     </div>
     ${pct!==null?`<div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-meta"><span>${pct}% toward ${esc(goal.title)}</span></div></div>`:''}
@@ -1546,7 +1546,7 @@ function toggleMilestone(key){
 // Rewards
 function saveRewardModal(){
   const d = modal.data;
-  const r = {id:d.id, title:val('#rw-title')||'Untitled', criteria:val('#rw-criteria'), tier:val('#rw-tier'), goalId:val('#rw-goal')||null, unlocked:d.unlocked||false, created:d.created||Date.now()};
+  const r = {id:d.id, title:val('#rw-title')||'Untitled', criteria:val('#rw-criteria'), tier:val('#rw-tier'), goalId:val('#rw-goal')||null, unlocked:d.unlocked||false, claimedAt:d.claimedAt??null, created:d.created||Date.now()};
   const list=(state.rewards||[]).slice(); const i=list.findIndex(x=>x.id===r.id);
   if(i>=0) list[i]=r; else list.push(r);
   save('dualos/rewards',list); closeModal();
@@ -1592,7 +1592,7 @@ function exportData(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download='dualos-backup-'+todayStr()+'.json';
   document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(()=>URL.revokeObjectURL(url),0);
 }
 
 /* Keyboard: Esc closes modal */
